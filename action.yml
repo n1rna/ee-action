@@ -1,0 +1,73 @@
+name: 'ee hydrate'
+description: 'Generate env files from .ee config using the ee CLI'
+
+inputs:
+  environment:
+    description: 'Target environment name passed to ee hydrate'
+    required: true
+  config_path:
+    description: 'Path to the .ee config file'
+    required: true
+  env_file:
+    description: 'Output file path for the generated env file'
+    required: true
+  gh_secret:
+    description: 'Multi-line KEY=VALUE string from a GitHub secret'
+    required: true
+  format:
+    description: 'Output format (dotenv, json, yaml)'
+    required: false
+    default: 'dotenv'
+  ee_version:
+    description: 'ee CLI version to download from releases'
+    required: false
+    default: 'latest'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Install ee CLI
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        VERSION="${{ inputs.ee_version }}"
+
+        OS="$(uname -s | tr '[:upper:]' '[:lower:]')"
+        ARCH="$(uname -m)"
+        case "$ARCH" in
+          x86_64)  ARCH="amd64" ;;
+          aarch64) ARCH="arm64" ;;
+        esac
+
+        if [ "$VERSION" = "latest" ]; then
+          DOWNLOAD_URL="https://github.com/n1rna/ee-cli/releases/latest/download/ee-${OS}-${ARCH}.tar.gz"
+        else
+          DOWNLOAD_URL="https://github.com/n1rna/ee-cli/releases/download/${VERSION}/ee-${OS}-${ARCH}.tar.gz"
+        fi
+
+        INSTALL_DIR="$HOME/.ee/bin"
+        mkdir -p "$INSTALL_DIR"
+
+        echo "Downloading ee CLI from $DOWNLOAD_URL"
+        curl -fsSL "$DOWNLOAD_URL" | tar -xz -C "$INSTALL_DIR"
+        chmod +x "$INSTALL_DIR/ee"
+
+        echo "$INSTALL_DIR" >> "$GITHUB_PATH"
+
+    - name: Hydrate environment
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        # Parse gh_secret and export each KEY=VALUE pair
+        while IFS= read -r line || [ -n "$line" ]; do
+          # Skip blank lines and comments
+          [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && continue
+          export "$line"
+        done <<< "${{ inputs.gh_secret }}"
+
+        ee hydrate ${{ inputs.environment }} \
+          --config ${{ inputs.config_path }} \
+          --output ${{ inputs.env_file }} \
+          --format ${{ inputs.format }}
