@@ -41,16 +41,16 @@ runs:
         esac
 
         if [ "$VERSION" = "latest" ]; then
-          DOWNLOAD_URL="https://github.com/n1rna/ee-cli/releases/latest/download/ee-${OS}-${ARCH}.tar.gz"
+          DOWNLOAD_URL="https://github.com/n1rna/ee-cli/releases/latest/download/ee-${OS}-${ARCH}"
         else
-          DOWNLOAD_URL="https://github.com/n1rna/ee-cli/releases/download/${VERSION}/ee-${OS}-${ARCH}.tar.gz"
+          DOWNLOAD_URL="https://github.com/n1rna/ee-cli/releases/download/${VERSION}/ee-${OS}-${ARCH}"
         fi
 
         INSTALL_DIR="$HOME/.ee/bin"
         mkdir -p "$INSTALL_DIR"
 
         echo "Downloading ee CLI from $DOWNLOAD_URL"
-        curl -fsSL "$DOWNLOAD_URL" | tar -xz -C "$INSTALL_DIR"
+        curl -fsSL -o "$INSTALL_DIR/ee" "$DOWNLOAD_URL"
         chmod +x "$INSTALL_DIR/ee"
 
         echo "$INSTALL_DIR" >> "$GITHUB_PATH"
