@@ -60,14 +60,17 @@ runs:
       run: |
         set -euo pipefail
 
-        # Parse gh_secret and export each KEY=VALUE pair
-        while IFS= read -r line || [ -n "$line" ]; do
-          # Skip blank lines and comments
-          [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && continue
-          export "$line"
-        done <<< "${{ inputs.gh_secret }}"
+        # Write secret values to a temp env file
+        TEMP_ENV="$(mktemp)"
+        cat > "$TEMP_ENV" <<'EEEOF'
+${{ inputs.gh_secret }}
+EEEOF
 
-        ee hydrate ${{ inputs.environment }} \
-          --config ${{ inputs.config_path }} \
-          --output ${{ inputs.env_file }} \
-          --format ${{ inputs.format }}
+        # Apply secret env vars and run hydrate in that context
+        ee apply "$TEMP_ENV" -- \
+          ee hydrate ${{ inputs.environment }} \
+            --config ${{ inputs.config_path }} \
+            --output ${{ inputs.env_file }} \
+            --format ${{ inputs.format }}
+
+        rm -f "$TEMP_ENV"
