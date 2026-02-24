@@ -62,9 +62,9 @@ runs:
 
         # Write secret values to a temp env file
         TEMP_ENV="$(mktemp)"
-        cat > "$TEMP_ENV" <<'EEEOF'
-${{ inputs.gh_secret }}
-EEEOF
+        cat << EOF > "$TEMP_ENV"
+        ${{ inputs.gh_secret }}
+        EOF
 
         # Apply secret env vars and run hydrate in that context
         ee apply "$TEMP_ENV" -- \
