@@ -57,14 +57,14 @@ runs:
 
     - name: Hydrate environment
       shell: bash
+      env:
+        EE_SECRET_ENV: ${{ inputs.gh_secret }}
       run: |
         set -euo pipefail
 
         # Write secret values to a temp env file
         TEMP_ENV="$(mktemp)"
-        cat << EOF > "$TEMP_ENV"
-        ${{ inputs.gh_secret }}
-        EOF
+        printf '%s\n' "$EE_SECRET_ENV" > "$TEMP_ENV"
 
         # Apply secret env vars and run hydrate in that context
         ee apply "$TEMP_ENV" -- \
