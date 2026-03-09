@@ -1,0 +1,110 @@
+name: 'ee push'
+description: 'Push environment secrets to GitHub or Cloudflare using the ee CLI'
+
+inputs:
+  environment:
+    description: 'Target environment name to push'
+    required: true
+  config_path:
+    description: 'Path to the .ee config file'
+    required: false
+    default: '.ee'
+  origin:
+    description: 'Origin name to push to (auto-resolved if only one configured)'
+    required: false
+    default: ''
+  mode:
+    description: 'Override push mode (bundled or individual)'
+    required: false
+    default: ''
+  dry_run:
+    description: 'Preview what would be pushed without executing'
+    required: false
+    default: 'false'
+  gh_token:
+    description: 'GitHub token for gh CLI authentication (required for GitHub origins)'
+    required: false
+    default: ''
+  cloudflare_api_token:
+    description: 'Cloudflare API token for wrangler authentication (required for Cloudflare origins)'
+    required: false
+    default: ''
+  ee_version:
+    description: 'ee CLI version to download from releases'
+    required: false
+    default: 'latest'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Install ee CLI
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        VERSION="${{ inputs.ee_version }}"
+
+        OS="$(uname -s | tr '[:upper:]' '[:lower:]')"
+        ARCH="$(uname -m)"
+        case "$ARCH" in
+          x86_64)  ARCH="amd64" ;;
+          aarch64) ARCH="arm64" ;;
+        esac
+
+        if [ "$VERSION" = "latest" ]; then
+          DOWNLOAD_URL="https://github.com/n1rna/ee-cli/releases/latest/download/ee-${OS}-${ARCH}"
+        else
+          DOWNLOAD_URL="https://github.com/n1rna/ee-cli/releases/download/${VERSION}/ee-${OS}-${ARCH}"
+        fi
+
+        INSTALL_DIR="$HOME/.ee/bin"
+        mkdir -p "$INSTALL_DIR"
+
+        echo "Downloading ee CLI from $DOWNLOAD_URL"
+        curl -fsSL -o "$INSTALL_DIR/ee" "$DOWNLOAD_URL"
+        chmod +x "$INSTALL_DIR/ee"
+
+        echo "$INSTALL_DIR" >> "$GITHUB_PATH"
+
+    - name: Install wrangler
+      if: inputs.cloudflare_api_token != ''
+      shell: bash
+      run: |
+        set -euo pipefail
+        if ! command -v wrangler &> /dev/null; then
+          echo "Installing wrangler..."
+          npm install -g wrangler
+        fi
+
+    - name: Push secrets
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.gh_token }}
+        CLOUDFLARE_API_TOKEN: ${{ inputs.cloudflare_api_token }}
+      run: |
+        set -euo pipefail
+
+        ARGS=""
+
+        # Add origin if specified
+        if [ -n "${{ inputs.origin }}" ]; then
+          ARGS="${{ inputs.origin }} "
+        fi
+
+        ARGS="${ARGS}${{ inputs.environment }}"
+
+        # Add config path
+        ARGS="${ARGS} --config ${{ inputs.config_path }}"
+
+        # Add mode override if specified
+        if [ -n "${{ inputs.mode }}" ]; then
+          ARGS="${ARGS} --mode ${{ inputs.mode }}"
+        fi
+
+        # Add dry-run flag
+        if [ "${{ inputs.dry_run }}" = "true" ]; then
+          ARGS="${ARGS} --dry-run"
+        fi
+
+        echo "Running: ee push ${ARGS}"
+        eval "ee push ${ARGS}"
