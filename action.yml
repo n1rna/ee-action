@@ -40,18 +40,23 @@ runs:
           aarch64) ARCH="arm64" ;;
         esac
 
+        ARCHIVE="ee-${OS}-${ARCH}.tar.gz"
+
         if [ "$VERSION" = "latest" ]; then
-          DOWNLOAD_URL="https://github.com/n1rna/ee-cli/releases/latest/download/ee-${OS}-${ARCH}"
+          DOWNLOAD_URL="https://github.com/n1rna/ee-cli/releases/latest/download/${ARCHIVE}"
         else
-          DOWNLOAD_URL="https://github.com/n1rna/ee-cli/releases/download/${VERSION}/ee-${OS}-${ARCH}"
+          DOWNLOAD_URL="https://github.com/n1rna/ee-cli/releases/download/${VERSION}/${ARCHIVE}"
         fi
 
         INSTALL_DIR="$HOME/.ee/bin"
         mkdir -p "$INSTALL_DIR"
 
         echo "Downloading ee CLI from $DOWNLOAD_URL"
-        curl -fsSL -o "$INSTALL_DIR/ee" "$DOWNLOAD_URL"
+        curl -fsSL -o "/tmp/${ARCHIVE}" "$DOWNLOAD_URL"
+        tar xzf "/tmp/${ARCHIVE}" -C "$INSTALL_DIR"
+        mv "$INSTALL_DIR/ee-${OS}-${ARCH}" "$INSTALL_DIR/ee"
         chmod +x "$INSTALL_DIR/ee"
+        rm -f "/tmp/${ARCHIVE}"
 
         echo "$INSTALL_DIR" >> "$GITHUB_PATH"
 
