@@ -33,14 +33,26 @@ runs:
 
         VERSION="${{ inputs.ee_version }}"
 
-        OS="$(uname -s | tr '[:upper:]' '[:lower:]')"
+        RAW_OS="$(uname -s)"
+        case "$RAW_OS" in
+          Linux*)   OS="linux" ;;
+          Darwin*)  OS="darwin" ;;
+          MINGW*|MSYS*|CYGWIN*) OS="windows" ;;
+          *)        echo "Unsupported OS: $RAW_OS" && exit 1 ;;
+        esac
+
         ARCH="$(uname -m)"
         case "$ARCH" in
           x86_64)  ARCH="amd64" ;;
           aarch64) ARCH="arm64" ;;
         esac
 
-        ARCHIVE="ee-${OS}-${ARCH}.tar.gz"
+        EXE=""
+        if [ "$OS" = "windows" ]; then
+          EXE=".exe"
+        fi
+
+        ARCHIVE="ee-${OS}-${ARCH}${EXE}.tar.gz"
 
         if [ "$VERSION" = "latest" ]; then
           DOWNLOAD_URL="https://github.com/n1rna/ee-cli/releases/latest/download/${ARCHIVE}"
@@ -54,8 +66,8 @@ runs:
         echo "Downloading ee CLI from $DOWNLOAD_URL"
         curl -fsSL -o "/tmp/${ARCHIVE}" "$DOWNLOAD_URL"
         tar xzf "/tmp/${ARCHIVE}" -C "$INSTALL_DIR"
-        mv "$INSTALL_DIR/ee-${OS}-${ARCH}" "$INSTALL_DIR/ee"
-        chmod +x "$INSTALL_DIR/ee"
+        mv "$INSTALL_DIR/ee-${OS}-${ARCH}${EXE}" "$INSTALL_DIR/ee${EXE}"
+        chmod +x "$INSTALL_DIR/ee${EXE}"
         rm -f "/tmp/${ARCHIVE}"
 
         echo "$INSTALL_DIR" >> "$GITHUB_PATH"
@@ -71,9 +83,15 @@ runs:
         TEMP_ENV="$(mktemp)"
         printf '%s\n' "$EE_SECRET_ENV" > "$TEMP_ENV"
 
+        # Determine binary name (ee.exe on Windows, ee elsewhere)
+        EE_BIN="ee"
+        if [[ "$(uname -s)" == MINGW* ]] || [[ "$(uname -s)" == MSYS* ]] || [[ "$(uname -s)" == CYGWIN* ]]; then
+          EE_BIN="ee.exe"
+        fi
+
         # Apply secret env vars and run hydrate in that context
-        ee apply "$TEMP_ENV" -- \
-          ee hydrate ${{ inputs.environment }} \
+        "$EE_BIN" apply "$TEMP_ENV" -- \
+          "$EE_BIN" hydrate ${{ inputs.environment }} \
             --config ${{ inputs.config_path }} \
             --output ${{ inputs.env_file }} \
             --format ${{ inputs.format }}
