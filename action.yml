@@ -83,11 +83,14 @@ runs:
         TEMP_ENV="$(mktemp)"
         printf '%s\n' "$EE_SECRET_ENV" > "$TEMP_ENV"
 
-        # Determine binary name (ee.exe on Windows, ee elsewhere)
-        EE_BIN="ee"
+        # Ensure ee is in PATH for both the outer and inner (exec.Command) calls
+        export PATH="$HOME/.ee/bin:$PATH"
+
+        EXE=""
         if [[ "$(uname -s)" == MINGW* ]] || [[ "$(uname -s)" == MSYS* ]] || [[ "$(uname -s)" == CYGWIN* ]]; then
-          EE_BIN="ee.exe"
+          EXE=".exe"
         fi
+        EE_BIN="ee${EXE}"
 
         # Apply secret env vars and run hydrate in that context
         "$EE_BIN" apply "$TEMP_ENV" -- \
